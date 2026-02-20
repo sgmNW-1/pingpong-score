@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>卓球スコア分析 Pro Ver 1.0</title>
+    <style>
+        :root {
+            --primary: #002d72;
+            --accent: #d32f2f;
+            --win: #e55039;
+            --lose: #1976d2;
+            --bg: #f1f2f6;
+            --card: #ffffff;
+            --text: #2f3542;
+            --border: #dcdde1;
+        }
+
+        body {
+            font-family: -apple-system, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", sans-serif;
+            background-color: var(--bg);
+            margin: 0; padding: 0; color: var(--text);
+        }
+
+        /* ヘッダー・タブ */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 10px 0 0;
+            position: sticky; top: 0; z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .header-title { font-size: 1.1rem; text-align: center; margin-bottom: 10px; font-weight: bold; }
+
+        .tabs { 
+            display: flex; 
+            width: 100%; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-btn {
+            flex: 1; padding: 15px 15px; border: none; background: none;
+            color: #ced6e0; font-size: 14px; font-weight: bold; cursor: pointer;
+            border-bottom: 4px solid transparent;
+        }
+        .tab-btn.active { color: white; border-bottom: 4px solid var(--accent); background: rgba(255,255,255,0.1); }
+
+        /* コンテナ */
+        .container { padding: 15px; box-sizing: border-box; max-width: 1200px; margin: 0 auto; }
+        .content { display: none; }
+        .content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 検索 */
+        .search-container { margin-bottom: 15px; display: flex; gap: 10px; }
+        .search-input { flex: 1; padding: 12px; border-radius: 10px; border: 2px solid var(--border); font-size: 16px; }
+
+        /* レイアウト */
+        .form-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 768px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+            .full-width { grid-column: span 2; }
+        }
+
+        /* パーツ */
+        .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .section-title { font-size: 1rem; font-weight: bold; color: var(--primary); margin-bottom: 15px; padding-left: 10px; border-left: 5px solid var(--accent); }
+        label { display: block; font-size: 0.8rem; font-weight: bold; margin: 12px 0 5px; color: #747d8c; }
+        input, select, textarea { width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 10px; box-sizing: border-box; font-size: 16px; background: #fdfdfd; }
+
+        /* スコア */
+        .score-row-rich { display: grid; grid-template-columns: 50px 1fr 20px 1fr; align-items: center; gap: 8px; background: #f8f9fb; padding: 8px; border-radius: 10px; margin-bottom: 5px; }
+        .score-input { text-align: center; font-weight: bold; padding: 8px; border-radius: 8px; }
+
+        /* 団体戦マッチ */
+        .match-unit { border: 1px solid #eee; padding: 15px; border-radius: 16px; margin-bottom: 25px; background: #fff; position: relative; }
+        .match-tag { display: inline-block; background: var(--primary); color: white; padding: 2px 10px; border-radius: 5px; font-size: 0.75rem; margin-bottom: 10px; }
+        .player-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+        .btn-save { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 50px; font-size: 1.1rem; font-weight: bold; margin: 20px 0 60px; box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3); cursor: pointer; }
+
+        /* 結果表示 */
+        .result-item { border-left: 8px solid var(--primary); cursor: pointer; transition: 0.2s; }
+        .result-score-main { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .detail-box { display: none; padding-top: 15px; border-top: 1px dashed #ccc; margin-top: 10px; }
+        .detail-box.show { display: block; }
+        .badge { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px; }
+        .win-tag { color: var(--win); font-weight: bold; }
+        .lose-tag { color: var(--lose); font-weight: bold; }
+
+        /* 作成中画面 */
+        .under-construction { text-align: center; padding: 50px 20px; color: #aaa; }
+        .under-construction-icon { font-size: 4rem; margin-bottom: 20px; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">🏓 Table Tennis Score Pro Ver 1.0</div>
+    <div class="tabs">
+        <button class="tab-btn active" data-target="reg-single">個人登録</button>
+        <button class="tab-btn" data-target="reg-team">団体登録</button>
+        <button class="tab-btn" data-target="view-single">個人結果</button>
+        <button class="tab-btn" data-target="view-team">団体結果</button>
+        <button class="tab-btn" data-target="view-players">選手記録表</button>
+    </div>
+</header>
+
+<div class="container">
+    
+    <div id="reg-single" class="content active">
+        <div class="form-grid">
+            <div class="card">
+                <div class="section-title">試合設定</div>
+                <label>試合種別</label>
+                <select id="s-match-type" onchange="toggleEvent('single')">
+                    <option value="練習試合">練習試合</option>
+                    <option value="大会">大会</option>
+                </select>
+                <div id="s-event-area" class="hidden">
+                    <label>大会名</label>
+                    <input type="text" id="s-event-name">
+                    <label>ラウンド</label>
+                    <input type="text" id="s-round" placeholder="例：予選リーグ">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-title">対戦相手</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div><label>苗字</label><input type="text" id="s-opp-name"></div>
+                    <div><label>学校名</label><input type="text" id="s-opp-school"></div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1"><label>グリップ</label><select id="s-opp-grip"><option>シェーク</option><option>ペン</option></select></div>
+                    <div style="flex:1"><label>戦型</label><select id="s-opp-style"><option>ドライブ</option><option>速攻</option><option>カット</option><option>異質</option></select></div>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <div class="section-title">スコア入力</div>
+                <div id="s-score-inputs"></div>
+                <label>試合メモ</label>
+                <textarea id="s-memo" rows="2" placeholder="気づいたことなど"></textarea>
+                <button class="btn-save" onclick="saveSingle()">個人戦を保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reg-team" class="content">
+        <div class="card">
+            <div class="section-title">団体戦基本情報</div>
+            <label>試合種別</label>
+            <select id="t-match-type" onchange="toggleEvent('team')">
+                <option value="練習試合">練習試合</option>
+                <option value="大会">大会</option>
+            </select>
+            <div id="t-event-area" class="hidden">
+                <label>大会名</label>
+                <input type="text" id="t-event-name">
+            </div>
+            <label>対戦校名</label>
+            <input type="text" id="t-opp-school" placeholder="相手校">
+        </div>
+
+        <div id="t-match-units"></div>
+        <button class="btn-save" onclick="saveTeam()" style="background:var(--primary)">団体戦を保存</button>
+    </div>
+
+    <div id="view-single" class="content">
+        <div class="search-container"><input type="text" class="search-input" id="search-s" placeholder="選手・学校名で検索..." oninput="renderResults('single')"></div>
+        <div id="single-list"></div>
+    </div>
+
+    <div id="view-team" class="content">
+        <div class="search-container"><input type="text" class="search-input" id="search-t" placeholder="学校名で検索..." oninput="renderResults('team')"></div>
+        <div id="team-list"></div>
+    </div>
+
+    <div id="view-players" class="content">
+        <div class="under-construction">
+            <div class="under-construction-icon">📊</div>
+            <h2>選手記録表</h2>
+            <p>この機能は Ver 1.x 以降で追加予定です。<br>各選手の勝率や戦型別相性などを分析できるようになります。</p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const labels = ["第1試合(S)", "第2試合(S)", "第3試合(W)", "第4試合(S)", "第5試合(S)"];
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn, .content').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+            const target = btn.getAttribute('data-target');
+            document.getElementById(target).classList.add('active');
+            if(target === 'view-single') renderResults('single');
+            if(target === 'view-team') renderResults('team');
+        });
+    });
+
+    function toggleEvent(type) {
+        const val = document.getElementById(`${type === 'single' ? 's' : 't'}-match-type`).value;
+        document.getElementById(`${type === 'single' ? 's' : 't'}-event-area`).className = (val === '大会' ? 'show' : 'hidden');
+    }
+
+    window.onload = () => {
+        const sArea = document.getElementById('s-score-inputs');
+        for(let i=1; i<=5; i++) sArea.innerHTML += createScoreRow(`s-my-${i}`, `s-opp-${i}`, i);
+
+        const tArea = document.getElementById('t-match-units');
+        for(let i=1; i<=5; i++) {
+            const isDouble = (i === 3);
+            tArea.innerHTML += `
+                <div class="card match-unit">
+                    <span class="match-tag">${labels[i-1]}</span>
+                    <div class="form-grid">
+                        <div class="player-inputs">
+                            <div><label>自選手${isDouble?'1':''}</label><input type="text" class="t-my-name-1"></div>
+                            ${isDouble ? '<div><label>自選手2</label><input type="text" class="t-my-name-2"></div>' : '<div></div>'}
+                        </div>
+                        <div class="player-inputs">
+                            <div><label>相手選手${isDouble?'1':''}</label><input type="text" class="t-opp-name-1"></div>
+                            ${isDouble ? '<div><label>相手選手2</label><input type="text" class="t-opp-name-2"></div>' : '<div></div>'}
+                        </div>
+                    </div>
+                    <input type="text" class="t-opp-style" placeholder="相手の戦型/特徴メモ" style="margin-top:10px;">
+                    <div style="margin-top:10px;">
+                        ${[1,2,3,4,5].map(s => createScoreRow(`t-my-${i}-${s}`, `t-opp-${i}-${s}`, s)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    };
+
+    function createScoreRow(id1, id2, n) {
+        return `<div class="score-row-rich"><span style="font-size:0.7rem; color:#888;">Set ${n}</span><input type="number" id="${id1}" class="score-input" placeholder="0"><span>-</span><input type="number" id="${id2}" class="score-input" placeholder="0"></div>`;
+    }
+
+    function saveSingle() {
+        const type = document.getElementById('s-match-type').value;
+        const scores = [];
+        let mSets = 0, oSets = 0;
+        for(let i=1; i<=5; i++){
+            const m = parseInt(document.getElementById(`s-my-${i}`).value) || 0;
+            const o = parseInt(document.getElementById(`s-opp-${i}`).value) || 0;
+            if(m > o) mSets++; else if(o > m) oSets++;
+            scores.push({my: m, opp: o});
+        }
+        const data = {
+            id: Date.now(), cat: 'single', matchType: type,
+            event: document.getElementById('s-event-name').value,
+            round: document.getElementById('s-round').value,
+            name: document.getElementById('s-opp-name').value,
+            school: document.getElementById('s-opp-school').value,
+            style: document.getElementById('s-opp-style').value,
+            grip: document.getElementById('s-opp-grip').value,
+            memo: document.getElementById('s-memo').value,
+            mSets, oSets, scores, date: new Date().toLocaleDateString()
+        };
+        store(data);
+    }
+
+    function saveTeam() {
+        const type = document.getElementById('t-match-type').value;
+        let matches = [];
+        let winCount = 0;
+        let playedMatches = 0;
+
+        document.querySelectorAll('.match-unit').forEach((unit, idx) => {
+            const mIdx = idx + 1;
+            let mS = 0, oS = 0, detail = [], hasScore = false;
+            for(let s=1; s<=5; s++){
+                const v1 = parseInt(document.getElementById(`t-my-${mIdx}-${s}`).value) || 0;
+                const v2 = parseInt(document.getElementById(`t-opp-${mIdx}-${s}`).value) || 0;
+                if(v1 > 0 || v2 > 0) hasScore = true;
+                if(v1 > v2) mS++; else if(v2 > v1) oS++;
+                detail.push({my: v1, opp: v2});
+            }
+            if(hasScore) {
+                playedMatches++;
+                if(mS > oS) winCount++;
+                const my2 = unit.querySelector('.t-my-name-2');
+                const opp2 = unit.querySelector('.t-opp-name-2');
+                matches.push({
+                    label: labels[idx],
+                    my: unit.querySelector('.t-my-name-1').value + (my2 ? '・'+my2.value : ''),
+                    opp: unit.querySelector('.t-opp-name-1').value + (opp2 ? '・'+opp2.value : ''),
+                    style: unit.querySelector('.t-opp-style').value,
+                    mS, oS, detail
+                });
+            }
+        });
+
+        const data = {
+            id: Date.now(), cat: 'team', matchType: type,
+            event: document.getElementById('t-event-name').value,
+            school: document.getElementById('t-opp-school').value,
+            teamScore: `${winCount} - ${playedMatches - winCount}`,
+            isWin: winCount > (playedMatches - winCount),
+            matches, date: new Date().toLocaleDateString()
+        };
+        store(data);
+    }
+
+    function store(data) {
+        let list = JSON.parse(localStorage.getItem('tt_v5_data') || '[]');
+        list.unshift(data);
+        localStorage.setItem('tt_v5_data', JSON.stringify(list));
+        alert("保存完了"); location.reload();
+    }
+
+    function renderResults(cat) {
+        const list = JSON.parse(localStorage.getItem('tt_v5_data') || '[]');
+        const query = document.getElementById(cat === 'single' ? 'search-s' : 'search-t').value.toLowerCase();
+        const container = document.getElementById(cat === 'single' ? 'single-list' : 'team-list');
+        container.innerHTML = '';
+
+        const filtered = list.filter(item => {
+            if(item.cat !== cat) return false;
+            const targetStr = (cat === 'single' ? (item.name + item.school) : item.school).toLowerCase();
+            return targetStr.includes(query);
+        });
+
+        filtered.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card result-item';
+            if(cat === 'single') {
+                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${item.date} | ${item.matchType} ${item.event?'['+item.event+']':''}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; font-size:1.1rem;">${item.name} <small>(${item.school})</small></span><span class="result-score-main ${item.mSets>item.oSets?'win-tag':'lose-tag'}">${item.mSets}-${item.oSets}</span></div></div><div class="detail-box"><p style="font-size:0.8rem; margin:0 0 10px;">${item.grip}/${item.style} ${item.round?' | '+item.round:''}</p><div>${item.scores.filter(s=>s.my>0||s.opp>0).map(s=>`<span class="badge">${s.my}-${s.opp}</span>`).join('')}</div><div style="margin-top:10px; font-size:0.85rem; background:#f0f2f5; padding:8px; border-radius:8px;">メモ: ${item.memo || 'なし'}</div></div>`;
+            } else {
+                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${item.date} | ${item.matchType} 団体</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; font-size:1.1rem;">vs ${item.school} ${item.event?'['+item.event+']':''}</span><span class="result-score-main ${item.isWin?'win-tag':'lose-tag'}">${item.teamScore}</span></div></div><div class="detail-box"><table style="width:100%; font-size:0.8rem; border-collapse:collapse;">${item.matches.map(m => `<tr style="border-bottom:1px solid #eee;"><td style="padding:5px;">${m.label}<br><strong>${m.my}</strong></td><td style="text-align:center; font-weight:bold; font-size:1rem;">${m.mS}-${m.oS}</td><td style="text-align:right; padding:5px;">${m.opp}<br><small>${m.style}</small></td></tr><tr><td colspan="3" style="font-size:0.7rem; color:#888; padding-bottom:5px;">${m.detail.filter(d=>d.my>0||d.opp>0).map(d=>`${d.my}-${d.opp}`).join(' / ')}</td></tr>`).join('')}</table></div>`;
+            }
+            container.appendChild(card);
+        });
+    }
+</script>
+</body>
+</html>
