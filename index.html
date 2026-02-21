@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>卓球スコア分析 Pro Ver 1.1</title>
+    <title>卓球スコア分析 Pro Ver 1.2</title>
     <style>
         :root {
             --primary: #002d72;
@@ -14,6 +14,7 @@
             --card: #ffffff;
             --text: #2f3542;
             --border: #dcdde1;
+            --calendar-today: #fff2f2;
         }
 
         body {
@@ -22,7 +23,6 @@
             margin: 0; padding: 0; color: var(--text);
         }
 
-        /* ヘッダー・タブ */
         header {
             background: var(--primary);
             color: white;
@@ -40,6 +40,7 @@
             margin: 0 auto; 
             overflow-x: auto;
             white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
         }
         .tab-btn {
             flex: 1; padding: 15px 15px; border: none; background: none;
@@ -53,10 +54,7 @@
         .content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* 検索 & 管理 */
-        .admin-controls {
-            display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;
-        }
+        .admin-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         .search-input { flex: 2; padding: 12px; border-radius: 10px; border: 2px solid var(--border); font-size: 16px; min-width: 200px; }
         
         .btn-tool {
@@ -64,7 +62,6 @@
             font-weight: bold; font-size: 0.8rem; background: #fff; border: 2px solid var(--border);
         }
 
-        /* レイアウト */
         .form-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 768px) {
             .form-grid { grid-template-columns: 1fr 1fr; }
@@ -85,6 +82,18 @@
 
         .btn-save { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 50px; font-size: 1.1rem; font-weight: bold; margin: 20px 0 60px; box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3); cursor: pointer; }
 
+        /* カレンダー用スタイル */
+        .calendar-wrap { margin-bottom: 20px; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; table-layout: fixed; }
+        .calendar-table th { background: var(--primary); color: white; padding: 10px 0; font-size: 0.8rem; }
+        .calendar-table td { height: 60px; text-align: center; vertical-align: top; padding: 5px; border: 1px solid #eee; cursor: pointer; position: relative; }
+        .calendar-table td.today { background: var(--calendar-today); }
+        .calendar-table td.has-event::after { content: "●"; color: var(--accent); position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); font-size: 10px; }
+        .day-number { font-weight: bold; font-size: 0.9rem; }
+        .schedule-list { margin-top: 15px; }
+        .schedule-item { background: #fff; padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
         .result-item { border-left: 8px solid var(--primary); cursor: pointer; transition: 0.2s; }
         .result-score-main { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
         .detail-box { display: none; padding-top: 15px; border-top: 1px dashed #ccc; margin-top: 10px; }
@@ -93,24 +102,24 @@
         .win-tag { color: var(--win); font-weight: bold; }
         .lose-tag { color: var(--lose); font-weight: bold; }
 
-        .under-construction { text-align: center; padding: 50px 20px; color: #aaa; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="header-title">🏓 Table Tennis Score Pro Ver 1.1</div>
+    <div class="header-title">🏓 Table Tennis Score Pro Ver 1.2</div>
     <div class="tabs">
         <button class="tab-btn active" data-target="reg-single">個人登録</button>
         <button class="tab-btn" data-target="reg-team">団体登録</button>
         <button class="tab-btn" data-target="view-single">個人結果</button>
         <button class="tab-btn" data-target="view-team">団体結果</button>
-        <button class="tab-btn" data-target="view-players">選手記録表</button>
+        <button class="tab-btn" data-target="view-practice">練習予定表</button>
     </div>
 </header>
 
 <div class="container">
+    
     <div id="reg-single" class="content active">
         <div class="form-grid">
             <div class="card">
@@ -127,6 +136,7 @@
                     <input type="text" id="s-round" placeholder="例：予選リーグ">
                 </div>
             </div>
+
             <div class="card">
                 <div class="section-title">対戦相手</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -138,6 +148,7 @@
                     <div style="flex:1"><label>戦型</label><select id="s-opp-style"><option>ドライブ</option><option>速攻</option><option>カット</option><option>異質</option></select></div>
                 </div>
             </div>
+
             <div class="card full-width">
                 <div class="section-title">スコア入力</div>
                 <div id="s-score-inputs"></div>
@@ -187,18 +198,56 @@
         <div id="team-list"></div>
     </div>
 
-    <div id="view-players" class="content">
-        <div class="under-construction">
-            <div style="font-size:4rem;">📊</div>
-            <h2>選手記録表</h2>
-            <p>Ver 1.x 以降で追加予定</p>
+    <div id="view-practice" class="content">
+        <div class="card">
+            <div class="section-title">練習予定の登録</div>
+            <div class="form-grid">
+                <div>
+                    <label>練習場所</label>
+                    <input type="text" id="p-location" placeholder="体育館・クラブチーム名など">
+                </div>
+                <div>
+                    <label>練習日程</label>
+                    <input type="date" id="p-date">
+                </div>
+                <div>
+                    <label>開始時間</label>
+                    <input type="time" id="p-start">
+                </div>
+                <div>
+                    <label>終了時間</label>
+                    <input type="time" id="p-end">
+                </div>
+            </div>
+            <button class="btn-save" onclick="savePractice()" style="margin-bottom:10px;">予定を追加</button>
+        </div>
+
+        <div class="card">
+            <div class="section-title">練習カレンダー</div>
+            <div class="calendar-wrap" id="calendar-container">
+                <div class="calendar-header">
+                    <button class="btn-tool" onclick="changeMonth(-1)">◀</button>
+                    <div id="calendar-month-label" style="font-weight:bold;"></div>
+                    <button class="btn-tool" onclick="changeMonth(1)">▶</button>
+                </div>
+                <table class="calendar-table" id="calendar-table">
+                    <thead><tr><th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th></tr></thead>
+                    <tbody id="calendar-body"></tbody>
+                </table>
+            </div>
+            <div class="schedule-list" id="selected-day-schedules">
+                <p style="color:#888; text-align:center;">カレンダーの日付を選択すると<br>詳細が表示されます</p>
+            </div>
         </div>
     </div>
+
 </div>
 
 <script>
-    const STORAGE_KEY = 'tt_v5_data'; // 互換性のために維持
+    const STORAGE_KEY = 'tt_v5_data';
+    const PRACTICE_KEY = 'tt_practice_data';
     const labels = ["第1試合(S)", "第2試合(S)", "第3試合(W)", "第4試合(S)", "第5試合(S)"];
+    let currentViewDate = new Date();
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -208,6 +257,7 @@
             document.getElementById(target).classList.add('active');
             if(target === 'view-single') renderResults('single');
             if(target === 'view-team') renderResults('team');
+            if(target === 'view-practice') renderCalendar();
         });
     });
 
@@ -230,15 +280,96 @@
         return `<div class="score-row-rich"><span style="font-size:0.7rem; color:#888;">Set ${n}</span><input type="number" id="${id1}" class="score-input" placeholder="0"><span>-</span><input type="number" id="${id2}" class="score-input" placeholder="0"></div>`;
     }
 
-    // 保存・読込（エクスポート機能）
+    // 練習予定保存
+    function savePractice() {
+        const loc = document.getElementById('p-location').value;
+        const date = document.getElementById('p-date').value;
+        const start = document.getElementById('p-start').value;
+        const end = document.getElementById('p-end').value;
+
+        if(!loc || !date) return alert("場所と日程は必須です");
+
+        const newEvent = { id: Date.now(), location: loc, date, start, end };
+        let list = JSON.parse(localStorage.getItem(PRACTICE_KEY) || '[]');
+        list.push(newEvent);
+        localStorage.setItem(PRACTICE_KEY, JSON.stringify(list));
+        
+        alert("予定を登録しました");
+        document.getElementById('p-location').value = '';
+        renderCalendar();
+    }
+
+    // カレンダー描画
+    function renderCalendar() {
+        const year = currentViewDate.getFullYear();
+        const month = currentViewDate.getMonth();
+        document.getElementById('calendar-month-label').innerText = `${year}年 ${month + 1}月`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+        const practiceList = JSON.parse(localStorage.getItem(PRACTICE_KEY) || '[]');
+
+        let html = '<tr>';
+        for (let i = 0; i < firstDay; i++) html += '<td></td>';
+
+        for (let day = 1; day <= lastDate; day++) {
+            if ((day + firstDay - 1) % 7 === 0 && day !== 1) html += '</tr><tr>';
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const hasEvent = practiceList.some(p => p.date === dateStr);
+            const isToday = new Date().toLocaleDateString('sv-SE') === dateStr;
+            
+            html += `<td class="${hasEvent ? 'has-event' : ''} ${isToday ? 'today' : ''}" onclick="showDaySchedules('${dateStr}')">
+                <span class="day-number">${day}</span>
+            </td>`;
+        }
+        html += '</tr>';
+        document.getElementById('calendar-body').innerHTML = html;
+    }
+
+    function changeMonth(diff) {
+        currentViewDate.setMonth(currentViewDate.getMonth() + diff);
+        renderCalendar();
+    }
+
+    function showDaySchedules(dateStr) {
+        const list = JSON.parse(localStorage.getItem(PRACTICE_KEY) || '[]');
+        const dayEvents = list.filter(p => p.date === dateStr);
+        const container = document.getElementById('selected-day-schedules');
+
+        if (dayEvents.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color:#888;">${dateStr}<br>予定はありません</p>`;
+            return;
+        }
+
+        container.innerHTML = `<h4>${dateStr} の予定</h4>` + dayEvents.map(e => `
+            <div class="schedule-item">
+                <div style="font-weight:bold; color:var(--primary);">${e.location}</div>
+                <div style="font-size:0.9rem;">時間: ${e.start || '--:--'} 〜 ${e.end || '--:--'}</div>
+                <button onclick="deletePractice(${e.id})" style="color:red; border:none; background:none; font-size:0.7rem; padding:0; margin-top:5px; cursor:pointer;">× 削除</button>
+            </div>
+        `).join('');
+    }
+
+    function deletePractice(id) {
+        if(!confirm("この予定を削除しますか？")) return;
+        let list = JSON.parse(localStorage.getItem(PRACTICE_KEY) || '[]');
+        list = list.filter(p => p.id !== id);
+        localStorage.setItem(PRACTICE_KEY, JSON.stringify(list));
+        renderCalendar();
+        document.getElementById('selected-day-schedules').innerHTML = '';
+    }
+
+    // データ保存・読込 (スコア・練習予定両方)
     function exportData() {
-        const data = localStorage.getItem(STORAGE_KEY);
-        if(!data || data === '[]') return alert("保存するデータがありません");
-        const blob = new Blob([data], {type: 'application/json'});
+        const scoreData = localStorage.getItem(STORAGE_KEY) || '[]';
+        const practiceData = localStorage.getItem(PRACTICE_KEY) || '[]';
+        const allData = { scores: JSON.parse(scoreData), practices: JSON.parse(practiceData) };
+        
+        const blob = new Blob([JSON.stringify(allData)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `卓球スコア_バックアップ_${new Date().toLocaleDateString()}.json`;
+        a.download = `卓球アプリ完全バックアップ_${new Date().toLocaleDateString()}.json`;
         a.click();
     }
 
@@ -248,24 +379,21 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const importedData = JSON.parse(e.target.result);
-                if(confirm("既存のデータに上書きして読み込みますか？")) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
-                    alert("読込が完了しました。ページを更新します。");
-                    location.reload();
+                const imported = JSON.parse(e.target.result);
+                if(confirm("データを復元しますか？（現在のデータは上書きされます）")) {
+                    if(imported.scores) localStorage.setItem(STORAGE_KEY, JSON.stringify(imported.scores));
+                    if(imported.practices) localStorage.setItem(PRACTICE_KEY, JSON.stringify(imported.practices));
+                    alert("復元完了"); location.reload();
                 }
-            } catch(err) {
-                alert("ファイルの形式が正しくありません。");
-            }
+            } catch(err) { alert("無効なファイルです"); }
         };
         reader.readAsText(file);
     }
 
-    // データ保存 (個人・団体は前Verのロジック維持)
+    // 個人・団体戦保存ロジック (Ver 1.1から継承)
     function saveSingle() {
         const type = document.getElementById('s-match-type').value;
-        const scores = [];
-        let mSets = 0, oSets = 0;
+        const scores = []; let mSets = 0, oSets = 0;
         for(let i=1; i<=5; i++){
             const m = parseInt(document.getElementById(`s-my-${i}`).value) || 0;
             const o = parseInt(document.getElementById(`s-opp-${i}`).value) || 0;
