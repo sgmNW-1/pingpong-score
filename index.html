@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>卓球スコア分析 Pro Ver 1.3</title>
+    <title>卓球スコア分析 Pro Ver 1.4</title>
     <style>
         :root {
             --primary: #002d72;
@@ -108,7 +108,7 @@
 <body>
 
 <header>
-    <div class="header-title">🏓 Table Tennis Score Pro Ver 1.3</div>
+    <div class="header-title">🏓 Table Tennis Score Pro Ver 1.4</div>
     <div class="tabs">
         <button class="tab-btn active" data-target="reg-single">個人登録</button>
         <button class="tab-btn" data-target="reg-team">団体登録</button>
@@ -123,7 +123,9 @@
     <div id="reg-single" class="content active">
         <div class="form-grid">
             <div class="card">
-                <div class="section-title">試合設定</div>
+                <div class="section-title">試合基本情報</div>
+                <label>試合日</label>
+                <input type="date" id="s-match-date">
                 <label>試合種別</label>
                 <select id="s-match-type" onchange="toggleEvent('single')">
                     <option value="練習試合">練習試合</option>
@@ -163,6 +165,8 @@
     <div id="reg-team" class="content">
         <div class="card">
             <div class="section-title">団体戦基本情報</div>
+            <label>試合日</label>
+            <input type="date" id="t-match-date">
             <label>試合種別</label>
             <select id="t-match-type" onchange="toggleEvent('team')">
                 <option value="練習試合">練習試合</option>
@@ -253,6 +257,12 @@
     }
 
     window.onload = () => {
+        // 初期日付を本日に設定
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('s-match-date').value = today;
+        document.getElementById('t-match-date').value = today;
+        document.getElementById('p-date').value = today;
+
         const sArea = document.getElementById('s-score-inputs');
         for(let i=1; i<=5; i++) sArea.innerHTML += createScoreRow(`s-my-${i}`, `s-opp-${i}`, i);
         const tArea = document.getElementById('t-match-units');
@@ -266,7 +276,6 @@
         return `<div class="score-row-rich"><span style="font-size:0.7rem; color:#888;">Set ${n}</span><input type="number" id="${id1}" class="score-input" placeholder="0"><span>-</span><input type="number" id="${id2}" class="score-input" placeholder="0"></div>`;
     }
 
-    // 練習予定
     function savePractice() {
         const loc = document.getElementById('p-location').value;
         const date = document.getElementById('p-date').value;
@@ -307,7 +316,6 @@
 
     function delPrac(id) { if(confirm("削除しますか？")) { let list = JSON.parse(localStorage.getItem(PRACTICE_KEY)||'[]'); list = list.filter(p=>p.id!==id); localStorage.setItem(PRACTICE_KEY, JSON.stringify(list)); renderCalendar(); document.getElementById('selected-day-schedules').innerHTML=''; } }
 
-    // 保存・読込
     function exportData() {
         const s = localStorage.getItem(STORAGE_KEY) || '[]', p = localStorage.getItem(PRACTICE_KEY) || '[]';
         const blob = new Blob([JSON.stringify({scores:JSON.parse(s), practices:JSON.parse(p)})], {type:'application/json'});
@@ -321,18 +329,21 @@
         }; r.readAsText(f);
     }
 
-    // 試合データ保存
     function saveSingle() {
+        const mDate = document.getElementById('s-match-date').value;
+        if(!mDate) return alert("試合日を選択してください");
         const scores = []; let mS=0, oS=0;
         for(let i=1; i<=5; i++){
             const m = parseInt(document.getElementById(`s-my-${i}`).value)||0, o = parseInt(document.getElementById(`s-opp-${i}`).value)||0;
             if(m>o)mS++; else if(o>m)oS++; scores.push({my:m, opp:o});
         }
-        const data = { id:Date.now(), cat:'single', matchType:document.getElementById('s-match-type').value, event:document.getElementById('s-event-name').value, round:document.getElementById('s-round').value, name:document.getElementById('s-opp-name').value, school:document.getElementById('s-opp-school').value, hand:document.getElementById('s-opp-hand').value, grip:document.getElementById('s-opp-grip').value, style:document.getElementById('s-opp-style').value, memo:document.getElementById('s-memo').value, mSets:mS, oSets:oS, scores, date:new Date().toLocaleDateString() };
+        const data = { id:Date.now(), cat:'single', matchDate:mDate, matchType:document.getElementById('s-match-type').value, event:document.getElementById('s-event-name').value, round:document.getElementById('s-round').value, name:document.getElementById('s-opp-name').value, school:document.getElementById('s-opp-school').value, hand:document.getElementById('s-opp-hand').value, grip:document.getElementById('s-opp-grip').value, style:document.getElementById('s-opp-style').value, memo:document.getElementById('s-memo').value, mSets:mS, oSets:oS, scores };
         store(data);
     }
 
     function saveTeam() {
+        const mDate = document.getElementById('t-match-date').value;
+        if(!mDate) return alert("試合日を選択してください");
         let matches = [], win=0, played=0;
         document.querySelectorAll('.match-unit').forEach((unit, idx) => {
             const mIdx = idx + 1; let mS=0, oS=0, detail=[], has=false;
@@ -346,7 +357,7 @@
                 matches.push({ label:labels[idx], my:unit.querySelector('.t-my-name-1').value+(my2?'・'+my2.value:''), opp:unit.querySelector('.t-opp-name-1').value+(opp2?'・'+opp2.value:''), hand:unit.querySelector('.t-opp-hand').value, grip:unit.querySelector('.t-opp-grip').value, style:unit.querySelector('.t-opp-style-sel').value, memo:unit.querySelector('.t-opp-memo').value, mS, oS, detail });
             }
         });
-        store({ id:Date.now(), cat:'team', matchType:document.getElementById('t-match-type').value, event:document.getElementById('t-event-name').value, school:document.getElementById('t-opp-school').value, teamScore:`${win}-${played-win}`, isWin:win>(played-win), matches, date:new Date().toLocaleDateString() });
+        store({ id:Date.now(), cat:'team', matchDate:mDate, matchType:document.getElementById('t-match-type').value, event:document.getElementById('t-event-name').value, school:document.getElementById('t-opp-school').value, teamScore:`${win}-${played-win}`, isWin:win>(played-win), matches });
     }
 
     function store(d) { let l = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); l.unshift(d); localStorage.setItem(STORAGE_KEY, JSON.stringify(l)); alert("保存完了"); location.reload(); }
@@ -356,10 +367,12 @@
         con.innerHTML = '';
         list.filter(i => i.cat === cat && (cat==='single'?(i.name+i.school):(i.school)).toLowerCase().includes(q)).forEach(item => {
             const card = document.createElement('div'); card.className = 'card result-item';
+            // 表示用の日付（古いデータにはmatchDateがないため、その場合は作成日を表示）
+            const displayDate = item.matchDate || new Date(item.id).toLocaleDateString();
             if(cat === 'single') {
-                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${item.date} | ${item.matchType}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold;">${item.name} (${item.school})</span><span class="result-score-main ${item.mSets>item.oSets?'win-tag':'lose-tag'}">${item.mSets}-${item.oSets}</span></div></div><div class="detail-box"><p style="font-size:0.8rem;">相手: ${item.hand}利き / ${item.grip} / ${item.style}</p><div>${item.scores.filter(s=>s.my>0||s.opp>0).map(s=>`<span class="badge">${s.my}-${s.opp}</span>`).join('')}</div><div style="margin-top:10px; font-size:0.85rem; background:#f0f2f5; padding:8px; border-radius:8px;">メモ: ${item.memo || 'なし'}</div></div>`;
+                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${displayDate} | ${item.matchType}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold;">${item.name} (${item.school})</span><span class="result-score-main ${item.mSets>item.oSets?'win-tag':'lose-tag'}">${item.mSets}-${item.oSets}</span></div></div><div class="detail-box"><p style="font-size:0.8rem;">相手: ${item.hand}利き / ${item.grip} / ${item.style}</p><div>${item.scores.filter(s=>s.my>0||s.opp>0).map(s=>`<span class="badge">${s.my}-${s.opp}</span>`).join('')}</div><div style="margin-top:10px; font-size:0.85rem; background:#f0f2f5; padding:8px; border-radius:8px;">メモ: ${item.memo || 'なし'}</div></div>`;
             } else {
-                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${item.date} | vs ${item.school}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold;">${item.event || '団体戦'}</span><span class="result-score-main ${item.isWin?'win-tag':'lose-tag'}">${item.teamScore}</span></div></div><div class="detail-box"><table style="width:100%; font-size:0.8rem; border-collapse:collapse;">${item.matches.map(m => `<tr style="border-bottom:1px solid #eee;"><td style="padding:5px;">${m.label}<br><strong>${m.my}</strong></td><td style="text-align:center; font-weight:bold; font-size:1rem;">${m.mS}-${m.oS}</td><td style="text-align:right; padding:5px;">${m.opp}<br><small>(${m.hand}・${m.style})</small></td></tr>`).join('')}</table></div>`;
+                card.innerHTML = `<div onclick="this.nextElementSibling.classList.toggle('show')"><div style="font-size:0.75rem; color:#888;">${displayDate} | vs ${item.school}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold;">${item.event || '団体戦'}</span><span class="result-score-main ${item.isWin?'win-tag':'lose-tag'}">${item.teamScore}</span></div></div><div class="detail-box"><table style="width:100%; font-size:0.8rem; border-collapse:collapse;">${item.matches.map(m => `<tr style="border-bottom:1px solid #eee;"><td style="padding:5px;">${m.label}<br><strong>${m.my}</strong></td><td style="text-align:center; font-weight:bold; font-size:1rem;">${m.mS}-${m.oS}</td><td style="text-align:right; padding:5px;">${m.opp}<br><small>(${m.hand}・${m.style})</small></td></tr>`).join('')}</table></div>`;
             }
             con.appendChild(card);
         });
